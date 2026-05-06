@@ -13,7 +13,7 @@ export default defineConfig({
         sourcemap: false,
         runtimeCaching: [
           {
-             urlPattern: /^http:\/\/localhost:8001\/.*/i,
+            urlPattern: /^http:\/\/localhost:8001\/.*/i,
             handler: 'CacheFirst',
             options: {
               cacheName: 'google-fonts-cache',
