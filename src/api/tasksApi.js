@@ -1,4 +1,3 @@
-
 import apiClient from './config.js';
 
 const tasksApi = {
@@ -17,8 +16,7 @@ const tasksApi = {
   remove(id) {
     return apiClient.delete(`/tasks/${id}`);
   },
-
-  uploadImage(file, description = '') {
+ uploadImage(file, description = '') {
     const formData = new FormData();
     formData.append('file', file);
     if (description) formData.append('description', description);
