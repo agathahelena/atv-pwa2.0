@@ -1,4 +1,3 @@
-```vue
 <template>
   <form class="task-form" @submit.prevent="handleSubmit">
     <div class="task-row">
@@ -17,6 +16,14 @@
         {{ editingTask ? 'Alterar' : 'Adicionar' }}
       </button>
 
+       <button
+        type="submit"
+        class="task-button"
+        :disabled="uploading || loadingLocation"
+      >
+        {{ editingTask ? 'Alterar' : 'Adicionar' }}
+      </button>
+
       <button
         v-if="editingTask"
         type="button"
@@ -25,6 +32,42 @@
       >
         Cancelar
       </button>
+    </div>
+
+    <div class="location-section">
+      <button
+        type="button"
+        class="location-button"
+        :disabled="loadingLocation || uploading"
+        @click="handleGetLocation"
+      >
+        {{
+          loadingLocation
+            ? 'Obtendo localização...'
+            : '📍 Obter localização'
+        }}
+      </button>
+
+      <div v-if="location" class="location-info">
+        <p v-if="location.label" class="location-label">
+          📍 {{ location.label }}
+        </p>
+
+        <p v-else class="location-coordinates">
+          📍
+          {{ location.latitude.toFixed(6) }},
+          {{ location.longitude.toFixed(6) }}
+        </p>
+
+        <small v-if="location.accuracy">
+          Precisão aproximada:
+          {{ Math.round(location.accuracy) }} metros
+        </small>
+      </div>
+
+      <p v-if="locationError" class="location-error">
+        {{ locationError }}
+      </p>
     </div>
 
     <div class="image-section">
@@ -74,6 +117,8 @@
 <script setup>
 import { ref, watch } from 'vue'
 import tasksApi from '../api/tasksApi.js'
+import geocodingApi from '../api/geocodingApi.js'
+import { useGeolocation } from '../composables/useGeolocation.js'
 
 const isMobileDevice = ref(
   !window.matchMedia('(pointer: fine)').matches
@@ -86,7 +131,19 @@ const props = defineProps({
   },
 })
 
+
 const emit = defineEmits(['add', 'update', 'cancel'])
+
+const {
+  location,
+  locationError,
+  loadingLocation,
+  requestCurrentLocation,
+  setLocationLabel,
+  setLocationFromTask,
+  clearLocation,
+} = useGeolocation()
+
 
 const newTask = ref('')
 const previewUrl = ref(null)
@@ -169,6 +226,32 @@ function handleCancel() {
   imgAttachmentKey.value = null
 
   emit('cancel')
+}
+if (task) {
+      setLocationFromTask(task)
+    } else {
+      clearLocation()
+    }
+
+  {
+    immediate: true,
+  }
+  
+
+async function handleGetLocation() {
+  const captured = await requestCurrentLocation()
+  if (!captured) return
+
+  try {
+    const address = await geocodingApi.reverse(
+      captured.latitude,
+      captured.longitude,
+    )
+    setLocationLabel(address?.label)
+  } catch {
+    locationError.value =
+      'Localização obtida, mas não foi possível identificar a rua.'
+  }
 }
 </script>
 
