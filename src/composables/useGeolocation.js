@@ -21,22 +21,17 @@ export function useGeolocation() {
     }
   }
 
-  function setLocationFromTask(task) {
-    if (!task || task.latitude == null || task.longitude == null) {
-      location.value = null
-      return
-    }
-    location.value = {
-      latitude: task.latitude,
-      longitude: task.longitude,
-      accuracy: task.geolocation_accuracy ?? null,
-      timestamp: task.geolocation_timestamp
-        ? Date.parse(task.geolocation_timestamp)
-        : Date.now(),
-      label: task.location_label ?? null,
-    }
+  function setLocation(latitude, longitude, accuracy = null, label = null) {
+  location.value = {
+    latitude,
+    longitude,
+    accuracy,
+    timestamp: Date.now(),
+    label,
   }
 
+  locationError.value = ''
+}
   function clearLocation() {
     location.value = null
     locationError.value = ''
@@ -97,7 +92,7 @@ export function useGeolocation() {
     locationError,
     location,
     readPermissionState,
-    setLocationFromTask,
+    setLocation,
     clearLocation,
     setLocationLabel,
     requestCurrentLocation,

@@ -6,14 +6,25 @@
       class="task-thumbnail"
       alt="Imagem da tarefa"
     />
-    <label class="task-label">
-      <input
-        type="checkbox"
-        :checked="task.done"
-        @change="$emit('toggle', task.id)"
-      />
-      <span class="task-title">{{ task.title }}</span>
-    </label>
+   <label class="task-label">
+  <input
+    type="checkbox"
+    :checked="task.done"
+    @change="$emit('toggle', task.id)"
+  />
+
+  <div class="task-content">
+    <span class="task-title">{{ task.title }}</span>
+
+    <span
+      v-if="task.location_label"
+      class="task-location-tag"
+      :title="task.location_label"
+    >
+      📍 {{ task.location_label }}
+    </span>
+  </div>
+</label>
     <div class="task-actions">
       <button class="task-edit" @click="$emit('edit', task)">Editar</button>
       <button class="task-remove" @click="$emit('remove', task.id)">
@@ -113,5 +124,15 @@ defineEmits(['toggle', 'remove', 'edit']);
   border-radius: 6px;
   border: 1px solid #eee;
   flex-shrink: 0;
+}
+.task-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-location-tag {
+  font-size: 0.8rem;
+  color: #777;
 }
 </style>

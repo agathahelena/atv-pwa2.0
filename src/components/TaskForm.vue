@@ -1,4 +1,3 @@
-```vue
 <template>
   <form class="task-form" @submit.prevent="handleSubmit">
     <div class="task-row">
@@ -27,6 +26,7 @@
       </button>
     </div>
 
+    <!-- IMAGEM -->
     <div class="image-section">
       <img
         v-if="previewUrl || editingTask?.img_url"
@@ -62,54 +62,76 @@
           @change="handleImageChange"
         />
       </label>
+    </div>
+
+    <p class="image-help">
+      Em celular, o botão pode abrir a câmera.
+      Em notebook, abre o seletor de arquivos.
+    </p>
+
+    <!-- LOCALIZAÇÃO -->
+    <div class="location-section">
+      <div class="location-actions">
+        <button
+          type="button"
+          class="location-button"
+          :disabled="loadingLocation"
+          @click="handleGetLocation"
+        >
+          📍
+          {{
+            loadingLocation
+              ? 'Obtendo localização...'
+              : 'Usar localização atual'
+          }}
+        </button>
+
+        <button
+          v-if="location"
+          type="button"
+          class="location-clear"
+          @click="clearLocation"
+        >
+          Remover localização
+        </button>
       </div>
 
-      <p class="image-help">
-        Em celular, o botão pode abrir a câmera.
-        Em notebook, abre o seletor de arquivos.
+      <!-- MAPA -->
+      <div class="map-section">
+        <p class="map-help">
+          Clique no mapa para escolher uma localização.
+        </p>
+
+        <TaskLocationMap
+          :location="location"
+          @select="handleMapLocationSelect"
+        />
+      </div>
+
+      <!-- INFORMAÇÕES DA LOCALIZAÇÃO -->
+      <div v-if="location" class="location-info">
+        <p>
+          📍
+          {{ location.label || 'Localização selecionada' }}
+        </p>
+
+        <p v-if="location.accuracy != null">
+          Precisão:
+          <strong>{{ accuracyLevel }}</strong>
+          ({{ Math.round(location.accuracy) }} m)
+        </p>
+
+        <p class="coordinates">
+          Latitude: {{ location.latitude }}<br />
+          Longitude: {{ location.longitude }}
+        </p>
+      </div>
+
+      <p v-if="locationError" class="location-error">
+        {{ locationError }}
       </p>
-        </form>
-      <form class="task-form" @submit.prevent="handleGetLocation">
-     <div class="location-section">
-  <button
-    type="button"
-    class="location-button"
-    :disabled="loadingLocation"
-    @click="handleGetLocation"
-  >
-    📍
-    {{ loadingLocation ? 'Obtendo localização...' : 'Usar localização atual' }}
-  </button>
-
-  <button
-    v-if="location"
-    type="button"
-    class="location-clear"
-    @click="clearLocation"
-  >
-    Remover localização
-  </button>
-
-  <p v-if="locationError" class="location-error">
-    {{ locationError }}
-  </p>
-
-  <div v-if="location" class="location-info">
-    <p>
-      📍 Localização capturada
-    </p>
-
-    <p v-if="location.accuracy != null">
-      Precisão: {{ accuracyLevel }}
-      ({{ Math.round(location.accuracy) }} m)
-    </p>
-
-    <p v-if="permissionState === 'granted'">
-      Permissão concedida
-    </p>
-  </div>
-</div>
-      </form>
+    </div>
+  </form>
 </template>
 
 <script setup>
@@ -117,6 +139,7 @@ import { ref, watch, computed } from 'vue'
 
 import tasksApi from '../api/tasksApi.js'
 import geocodingApi from '../api/geocodingApi.js'
+import TaskLocationMap from './TaskLocationMap.vue'
 
 import { useGeolocation } from '../composables/useGeolocation.js'
 
@@ -129,8 +152,8 @@ const {
   location,
   loadingLocation,
   locationError,
-  permissionState,
   requestCurrentLocation,
+  setLocationFromTask,
   clearLocation,
   setLocationLabel,
 } = useGeolocation()
@@ -168,6 +191,12 @@ watch(
 
     previewUrl.value = null
     imgAttachmentKey.value = null
+
+    if (task) {
+      setLocationFromTask(task)
+    } else {
+      clearLocation()
+    }
   },
   { immediate: true }
 )
@@ -199,21 +228,36 @@ async function handleImageChange(event) {
 }
 
 async function handleGetLocation() {
-  const currentLocation = await requestCurrentLocation()
+  const captured = await requestCurrentLocation()
 
-  if (!currentLocation) return
+  if (!captured) return
 
   try {
     const address = await geocodingApi.reverse(
-      currentLocation.latitude,
-      currentLocation.longitude,
+      captured.latitude,
+      captured.longitude,
     )
 
-    if (address?.label) {
-      setLocationLabel(address.label)
-    }
-  } catch (err) {
-    console.error('Erro ao obter endereço:', err)
+    setLocationLabel(address?.label)
+  } catch {
+    locationError.value =
+      'Localização obtida, mas não foi possível identificar a rua.'
+  }
+}
+
+async function handleMapLocationSelect(selectedLocation) {
+  location.value = selectedLocation
+
+  try {
+    const address = await geocodingApi.reverse(
+      selectedLocation.latitude,
+      selectedLocation.longitude,
+    )
+
+    setLocationLabel(address?.label)
+  } catch {
+    locationError.value =
+      'Localização selecionada, mas não foi possível identificar a rua.'
   }
 }
 
@@ -313,12 +357,13 @@ function handleCancel() {
   border-radius: 8px;
   font-size: 1rem;
   cursor: pointer;
-  transition: border-color 0.2s;
 }
 
 .task-button-cancel:hover {
   border-color: #aaa;
 }
+
+/* IMAGEM */
 
 .image-section {
   display: flex;
@@ -351,7 +396,6 @@ function handleCancel() {
   border-radius: 6px;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: background-color 0.2s;
 }
 
 .image-label:hover:not(.disabled) {
@@ -374,16 +418,108 @@ function handleCancel() {
 .image-help {
   font-size: 0.75rem;
   color: #999;
-  margin: 0;
-  flex-basis: 100%;
+  margin: 0 0 16px;
 }
+
+/* LOCALIZAÇÃO */
+
+.location-section {
+  margin-top: 16px;
+}
+
+.location-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.location-button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 8px;
+  background-color: #4a90d9;
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.location-button:hover:not(:disabled) {
+  background-color: #357abd;
+}
+
+.location-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.location-clear {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  color: #666;
+  cursor: pointer;
+}
+
+.location-clear:hover {
+  border-color: #aaa;
+}
+
+/* MAPA */
+
+.map-section {
+  margin-top: 12px;
+}
+
+.map-help {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: #777;
+}
+
+/* INFORMAÇÕES */
+
+.location-info {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.location-info p {
+  margin: 4px 0;
+}
+
+.coordinates {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.location-error {
+  margin-top: 8px;
+  color: #e74c3c;
+  font-size: 0.85rem;
+}
+
 .accuracy-badge {
   font-size: 0.75rem;
   padding: 2px 8px;
   border-radius: 12px;
 }
-.accuracy-badge--boa { background: #d4edda; color: #155724; }
-.accuracy-badge--moderada { background: #fff3cd; color: #856404; }
-.accuracy-badge--baixa { background: #f8d7da; color: #721c24; }
-</style>
 
+.accuracy-badge--boa {
+  background: #d4edda;
+  color: #155724;
+}
+
+.accuracy-badge--moderada {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.accuracy-badge--baixa {
+  background: #f8d7da;
+  color: #721c24;
+}
+</style>
