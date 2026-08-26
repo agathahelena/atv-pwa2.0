@@ -32,6 +32,7 @@ defineProps({
 });
 
 defineEmits(['toggle', 'remove', 'edit']);
+
 </script>
 
 <style scoped>

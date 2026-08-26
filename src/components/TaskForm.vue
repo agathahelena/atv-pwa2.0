@@ -1,3 +1,4 @@
+```vue
 <template>
   <form class="task-form" @submit.prevent="handleSubmit">
     <div class="task-row">
@@ -16,14 +17,6 @@
         {{ editingTask ? 'Alterar' : 'Adicionar' }}
       </button>
 
-       <button
-        type="submit"
-        class="task-button"
-        :disabled="uploading || loadingLocation"
-      >
-        {{ editingTask ? 'Alterar' : 'Adicionar' }}
-      </button>
-
       <button
         v-if="editingTask"
         type="button"
@@ -32,42 +25,6 @@
       >
         Cancelar
       </button>
-    </div>
-
-    <div class="location-section">
-      <button
-        type="button"
-        class="location-button"
-        :disabled="loadingLocation || uploading"
-        @click="handleGetLocation"
-      >
-        {{
-          loadingLocation
-            ? 'Obtendo localização...'
-            : '📍 Obter localização'
-        }}
-      </button>
-
-      <div v-if="location" class="location-info">
-        <p v-if="location.label" class="location-label">
-          📍 {{ location.label }}
-        </p>
-
-        <p v-else class="location-coordinates">
-          📍
-          {{ location.latitude.toFixed(6) }},
-          {{ location.longitude.toFixed(6) }}
-        </p>
-
-        <small v-if="location.accuracy">
-          Precisão aproximada:
-          {{ Math.round(location.accuracy) }} metros
-        </small>
-      </div>
-
-      <p v-if="locationError" class="location-error">
-        {{ locationError }}
-      </p>
     </div>
 
     <div class="image-section">
@@ -105,20 +62,82 @@
           @change="handleImageChange"
         />
       </label>
+      </div>
 
       <p class="image-help">
         Em celular, o botão pode abrir a câmera.
         Em notebook, abre o seletor de arquivos.
       </p>
-    </div>
-  </form>
+        </form>
+      <form class="task-form" @submit.prevent="handleGetLocation">
+     <div class="location-section">
+  <button
+    type="button"
+    class="location-button"
+    :disabled="loadingLocation"
+    @click="handleGetLocation"
+  >
+    📍
+    {{ loadingLocation ? 'Obtendo localização...' : 'Usar localização atual' }}
+  </button>
+
+  <button
+    v-if="location"
+    type="button"
+    class="location-clear"
+    @click="clearLocation"
+  >
+    Remover localização
+  </button>
+
+  <p v-if="locationError" class="location-error">
+    {{ locationError }}
+  </p>
+
+  <div v-if="location" class="location-info">
+    <p>
+      📍 Localização capturada
+    </p>
+
+    <p v-if="location.accuracy != null">
+      Precisão: {{ accuracyLevel }}
+      ({{ Math.round(location.accuracy) }} m)
+    </p>
+
+    <p v-if="permissionState === 'granted'">
+      Permissão concedida
+    </p>
+  </div>
+</div>
+      </form>
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
+
 import tasksApi from '../api/tasksApi.js'
 import geocodingApi from '../api/geocodingApi.js'
+
 import { useGeolocation } from '../composables/useGeolocation.js'
+
+import {
+  classifyAccuracy,
+  buildLocationPayload,
+} from '../utils/location.js'
+
+const {
+  location,
+  loadingLocation,
+  locationError,
+  permissionState,
+  requestCurrentLocation,
+  clearLocation,
+  setLocationLabel,
+} = useGeolocation()
+
+const accuracyLevel = computed(() =>
+  classifyAccuracy(location.value?.accuracy)
+)
 
 const isMobileDevice = ref(
   !window.matchMedia('(pointer: fine)').matches
@@ -131,19 +150,7 @@ const props = defineProps({
   },
 })
 
-
 const emit = defineEmits(['add', 'update', 'cancel'])
-
-const {
-  location,
-  locationError,
-  loadingLocation,
-  requestCurrentLocation,
-  setLocationLabel,
-  setLocationFromTask,
-  clearLocation,
-} = useGeolocation()
-
 
 const newTask = ref('')
 const previewUrl = ref(null)
@@ -191,12 +198,32 @@ async function handleImageChange(event) {
   }
 }
 
+async function handleGetLocation() {
+  const currentLocation = await requestCurrentLocation()
+
+  if (!currentLocation) return
+
+  try {
+    const address = await geocodingApi.reverse(
+      currentLocation.latitude,
+      currentLocation.longitude,
+    )
+
+    if (address?.label) {
+      setLocationLabel(address.label)
+    }
+  } catch (err) {
+    console.error('Erro ao obter endereço:', err)
+  }
+}
+
 function handleSubmit() {
   if (!newTask.value.trim()) return
 
   const payload = {
     title: newTask.value.trim(),
     img_attachment_key: imgAttachmentKey.value,
+    ...buildLocationPayload(location.value),
   }
 
   if (props.editingTask) {
@@ -213,6 +240,8 @@ function handleSubmit() {
 
   previewUrl.value = null
   imgAttachmentKey.value = null
+
+  clearLocation()
 }
 
 function handleCancel() {
@@ -225,33 +254,9 @@ function handleCancel() {
   previewUrl.value = null
   imgAttachmentKey.value = null
 
+  clearLocation()
+
   emit('cancel')
-}
-if (task) {
-      setLocationFromTask(task)
-    } else {
-      clearLocation()
-    }
-
-  {
-    immediate: true,
-  }
-  
-
-async function handleGetLocation() {
-  const captured = await requestCurrentLocation()
-  if (!captured) return
-
-  try {
-    const address = await geocodingApi.reverse(
-      captured.latitude,
-      captured.longitude,
-    )
-    setLocationLabel(address?.label)
-  } catch {
-    locationError.value =
-      'Localização obtida, mas não foi possível identificar a rua.'
-  }
 }
 </script>
 
@@ -372,5 +377,13 @@ async function handleGetLocation() {
   margin: 0;
   flex-basis: 100%;
 }
+.accuracy-badge {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+.accuracy-badge--boa { background: #d4edda; color: #155724; }
+.accuracy-badge--moderada { background: #fff3cd; color: #856404; }
+.accuracy-badge--baixa { background: #f8d7da; color: #721c24; }
 </style>
-```
+

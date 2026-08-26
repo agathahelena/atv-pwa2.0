@@ -35,3 +35,11 @@ export function buildLocationPayload(location) {
     location_label: location.label?.trim() || null,
   }
 }
+
+export function classifyAccuracy(accuracy) {
+  if (accuracy == null) return null
+  if (accuracy < 20) return 'boa'
+  if (accuracy <= 100) return 'moderada'
+  return 'baixa'
+}
+
