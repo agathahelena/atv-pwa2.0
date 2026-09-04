@@ -32,6 +32,31 @@ export function useGeolocation() {
 
   locationError.value = ''
 }
+
+function setLocationFromTask(task) {
+  if (!task) {
+    location.value = null
+    return
+  }
+
+  if (
+    task.latitude != null &&
+    task.longitude != null
+  ) {
+    location.value = {
+      latitude: task.latitude,
+      longitude: task.longitude,
+      accuracy: task.accuracy ?? null,
+      timestamp: task.timestamp ?? Date.now(),
+      label: task.location_label ?? task.label ?? null,
+    }
+
+    locationError.value = ''
+  } else {
+    location.value = null
+  }
+}
+
   function clearLocation() {
     location.value = null
     locationError.value = ''
@@ -86,15 +111,17 @@ export function useGeolocation() {
   }
 
   return {
-    isSupported,
-    permissionState,
-    loadingLocation,
-    locationError,
-    location,
-    readPermissionState,
-    setLocation,
-    clearLocation,
-    setLocationLabel,
-    requestCurrentLocation,
-  }
+  isSupported,
+  permissionState,
+  loadingLocation,
+  locationError,
+  location,
+  readPermissionState,
+  setLocation,
+  setLocationFromTask,
+  clearLocation,
+  setLocationLabel,
+  requestCurrentLocation,
 }
+
+  }
