@@ -3,11 +3,11 @@ import apiClient from './config.js'
 
 const tasksApi = {
   getAll() {
-    return apiClient.get('/tasks')
+    return apiClient.get('/tasks/')
   },
 
   create(data) {
-    return apiClient.post('/tasks', data)
+    return apiClient.post('/tasks/', data)
   },
 
   update(id, data) {

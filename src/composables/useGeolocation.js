@@ -2,7 +2,9 @@ import { ref } from 'vue'
 
 export function useGeolocation() {
   const isSupported =
-    typeof navigator !== 'undefined' && typeof navigator.geolocation !== 'undefined'
+    typeof navigator !== 'undefined' &&
+    typeof navigator.geolocation !== 'undefined'
+
   const permissionState = ref('unknown')
   const loadingLocation = ref(false)
   const locationError = ref('')
@@ -10,9 +12,14 @@ export function useGeolocation() {
 
   async function readPermissionState() {
     if (!navigator.permissions?.query) return
+
     try {
-      const status = await navigator.permissions.query({ name: 'geolocation' })
+      const status = await navigator.permissions.query({
+        name: 'geolocation',
+      })
+
       permissionState.value = status.state
+
       status.onchange = () => {
         permissionState.value = status.state
       }
@@ -21,29 +28,63 @@ export function useGeolocation() {
     }
   }
 
-  function setLocation(latitude, longitude, accuracy = null, label = null) {
-  location.value = {
+  function setLocation(
     latitude,
     longitude,
-    accuracy,
-    timestamp: Date.now(),
-    label,
+    accuracy = null,
+    label = null,
+  ) {
+    location.value = {
+      latitude,
+      longitude,
+      accuracy,
+      timestamp: Date.now(),
+      label,
+    }
+
+    locationError.value = ''
   }
 
-  locationError.value = ''
-}
+  // Usada quando uma tarefa existente é carregada para edição
+  function setLocationFromTask(task) {
+    if (
+      task &&
+      task.latitude != null &&
+      task.longitude != null
+    ) {
+      location.value = {
+        latitude: task.latitude,
+        longitude: task.longitude,
+        accuracy: task.accuracy ?? null,
+        timestamp: task.location_timestamp ?? Date.now(),
+        label: task.location_label ?? null,
+      }
+
+      locationError.value = ''
+    } else {
+      location.value = null
+    }
+  }
+
   function clearLocation() {
     location.value = null
     locationError.value = ''
   }
 
   function setLocationLabel(label) {
-    if (location.value) location.value = { ...location.value, label: label || null }
+    if (location.value) {
+      location.value = {
+        ...location.value,
+        label: label || null,
+      }
+    }
   }
 
   function requestCurrentLocation() {
     if (!isSupported) {
-      locationError.value = 'Geolocalização não suportada neste dispositivo.'
+      locationError.value =
+        'Geolocalização não suportada neste dispositivo.'
+
       return Promise.resolve(null)
     }
 
@@ -54,6 +95,7 @@ export function useGeolocation() {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           permissionState.value = 'granted'
+
           location.value = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -61,21 +103,28 @@ export function useGeolocation() {
             timestamp: position.timestamp,
             label: null,
           }
+
           loadingLocation.value = false
           resolve(location.value)
         },
+
         (error) => {
           if (error.code === error.PERMISSION_DENIED) {
             permissionState.value = 'denied'
-            locationError.value = 'Permissão de localização negada.'
+            locationError.value =
+              'Permissão de localização negada.'
           } else if (error.code === error.TIMEOUT) {
-            locationError.value = 'Tempo esgotado para obter localização.'
+            locationError.value =
+              'Tempo esgotado para obter localização.'
           } else {
-            locationError.value = 'Não foi possível obter a localização agora.'
+            locationError.value =
+              'Não foi possível obter a localização agora.'
           }
+
           loadingLocation.value = false
           resolve(null)
         },
+
         {
           enableHighAccuracy: true,
           timeout: 10000,
@@ -91,8 +140,10 @@ export function useGeolocation() {
     loadingLocation,
     locationError,
     location,
+
     readPermissionState,
     setLocation,
+    setLocationFromTask,
     clearLocation,
     setLocationLabel,
     requestCurrentLocation,
