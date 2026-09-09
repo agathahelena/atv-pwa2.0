@@ -65,7 +65,6 @@ export function useGeolocation() {
       location.value = null
     }
   }
-
   function clearLocation() {
     location.value = null
     locationError.value = ''
@@ -135,6 +134,7 @@ export function useGeolocation() {
   }
 
   return {
+
     isSupported,
     permissionState,
     loadingLocation,
